@@ -139,23 +139,7 @@ AlfaBeta=D\theta; % Rayleigh coefficients
 
 %% Max Seismic response from the CFE-15 Spectrum
 g=981; % gravity acceleration
-Fsit=2.4; FRes=3.8; % Factores de sitio y de respuesta
-a0_tau=200; % cm/seg^2
-
-ro=0.8; % Redundance factor
-alf=0.9; % Irregularity factor
-Q=4; % Seismic behaviour factor
-
-Ta=0.1;
-Tb=0.6;
-Te=0.5; % Structure's period
-k=1.5; % Design spectrum slope
-Qp=1+(Q-1)*sqrt(Te/(k*Tb)); % Ductility factor
-
-Ro=2.5; % Over-resistance index
-R=Ro+1-sqrt(Te/Ta); % Over-resistance factor
-
-sa=a0_tau*Fsit*FRes/(R*Qp*alf*ro); % Reduced pseudo-acceleration (cm/seg^2)
+DS=1;
 
 %% Mass, Stiffness and Damping matrices
 pvconc=0.0024; % unit weight of concrete
@@ -175,29 +159,34 @@ end
 
 %% Dynamic analysis
 % Time discretization
-dt=0.05;
-ttotal=5;
-t=0:dt:ttotal;
-npoints=length(t);
+dt=0.01;
 
 % Ground acceleration history
-tload=1.0; % duration of external excitation
 
-g=sa*cos(5*t); % Acceleration in time
+A = importdata('KobeJapan1995_XD.csv');
 
-for i=1:length(g)
-    if t(i)>tload
-        g(i)=20*cos(30*t(i));
+accelx=[];
+for i=1:819
+    for j=1:5
+        accelx=[accelx;A(i,j)];
     end
 end
+accelx=[accelx;A(820,1)];
+
+t=[];
+for i=1:4096
+    t=[t;i*dt];
+end
+npoints=length(t);
 
 figure(1)
+plot(t,accelx)
+xlabel('time (sec)')
+ylabel('Acceleration (g)')
+title('Accelerogram Kobe-Japan 1995 Nishi Akashi')
 grid on
-plot(t,g,'b -','LineWidth',1.8)
 hold on
-xlabel('Time (sec)')
-ylabel('Acceleration (Kg/cm^2)')
-title('Ground acceleration in time')
+accelx=accelx*100;
 
 dofhist=[4 7]; % dof to evaluate
 
@@ -205,8 +194,8 @@ dofhist=[4 7]; % dof to evaluate
 f(:,1)=zeros(nnodes*3,1);
 for i=1:npoints
     % Modal analysis
-    [f(:,i+1),T(:,i),La(:,i),Egv]=ModalsMDOF2DFrames2(Mgl,Kgl,...
-        bc,g(i),modal);
+    [f(:,i+1),T(:,i),La(:,i),Egv,Ma]=ModalsMDOF2DFrames2(Mgl,Kgl,...
+        bc,accelx(i),modal);
 end
 
 d0=zeros(3*nnodes,1); % Initial values for solution
@@ -218,10 +207,11 @@ beta=0.25;
 gamma=0.5;
 [Dsnap,D,V,A]=NewmarkBetaMDOF2(Kgl,Cgl,Mgl,d0,v0,dt,beta,gamma,t,f,...
                               dofhist,bc);
+                          
 %% Dynamic displacement analysis per DOF
 figure(2)
 grid on
-plot(t,D(1,:),'b -','LineWidth',1.8)
+plot(t,D(1,:),'r -','LineWidth',1.8)
 legend(strcat('DOF-',num2str(dofhist(1))))
 hold on
 for i=2:length(dofhist)
@@ -234,21 +224,21 @@ ylabel('Displacements (cm)')
 title('Displacements in time per DOF')
 
 %% Deformation history of structures
-dtstep=3;
+dtstep=300;
 
 WidthStruc=max(coordxy(:,1));
 HeightStruc=max(coordxy(:,2));
 figure(3)
 axis('equal')
 axis off
-sfac=100;
+sfac=1000;
 title(strcat('Deformed structures in time. Scale x ',num2str(sfac)))
 for i=1:5
     Ext=Ex+(i-1)*(WidthStruc+300);
     eldraw2(Ext,Ey,[2 3 0]);
     Edb=extract(Edof,Dsnap(:,dtstep*i-(dtstep-1)));
     eldisp2(Ext,Ey,Edb,[1 2 2],sfac);
-    Time=num2str(t(5*i-4));
+    Time=num2str(t(dtstep*i-(dtstep-1)));
     NotaTime=strcat('Time(seg)= ',Time);
     text((WidthStruc+150)*(i-1)+50,150,NotaTime);
 end
@@ -259,7 +249,7 @@ for i=6:10
     eldraw2(Ext,Eyt,[2 3 0]);
     Edb=extract(Edof,Dsnap(:,dtstep*i-(dtstep-1)));
     eldisp2(Ext,Eyt,Edb,[1 2 2],sfac);
-    Time=num2str(t(5*i-4));
+    Time=num2str(t(dtstep*i-(dtstep-1)));
     NotaTime=strcat('Time(seg)= ',Time);
     text((WidthStruc+150)*(i-6)+50,-250,NotaTime)
     

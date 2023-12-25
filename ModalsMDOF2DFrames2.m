@@ -1,5 +1,5 @@
-function [FmaxMDOF,Te,lambda,fi]=ModalsMDOF2DFrames2(M,K,bc,Sa,mode)
-% SYNTAX : [FmaxMDOF,Te,lambda,fi]=ModalsMDOF2DFrames2(M,K,bc,Sa,mode)
+function [FmaxMDOF,Te,lambda,fi,Ma]=ModalsMDOF2DFrames2(M,K,bc,Sa,mode)
+% SYNTAX : [FmaxMDOF,Te,lambda,fi,Ma]=ModalsMDOF2DFrames2(M,K,bc,mode)
 %---------------------------------------------------------------------
 %    PURPOSE
 %     To compute the equivalent inertial forces at the DOF's of a 
@@ -10,7 +10,8 @@ function [FmaxMDOF,Te,lambda,fi]=ModalsMDOF2DFrames2(M,K,bc,Sa,mode)
 %
 %            bc:                Boundary condition array
 %
-%            Sa:                Pseudo-acceleration
+%            Sa:                Design Spectrum 
+%                               (1) from the Eurocode EC8
 %
 %            mode:              Mode of vibration of interest:
 %                               [mode-1,mode-2,...] -> The equivalent 
@@ -32,12 +33,15 @@ function [FmaxMDOF,Te,lambda,fi]=ModalsMDOF2DFrames2(M,K,bc,Sa,mode)
 %            FmaxMDOF :         Equivalent DOF's forces for the modal
 %                               in question
 %
+%            Ma:                Modal mass contribution for every DOF
+%
 %--------------------------------------------------------------------
 
 % LAST MODIFIED: L.Verduzco    2023-06-07
-% Copyright (c)  Faculty of Engineering
-%                Autonomous University of Queretaro
+% Copyright (c)  School of Engineering
+%                The Hong Kong University of Science and Technology
 %--------------------------------------------------------------------
+
 %% Solving eigenvalues (frequencies) and eigenvectors (modals)
 [lambda,fi]=eigen(K,M,bc(:,1)); % Eigenvalue/eigenvectors
 
@@ -46,7 +50,6 @@ function [FmaxMDOF,Te,lambda,fi]=ModalsMDOF2DFrames2(M,K,bc,Sa,mode)
 for i=1:nmodes
     [factor,ifactor]=max(abs(fi(:,i))); % Eigenvectors - vibration modals
     factor=factor*sign(fi(ifactor,i));
-    fi(:,i)=fi(:,i)/factor; % Normalization
 end
 
 % Circular frequencies
@@ -61,13 +64,18 @@ Te=1./freq;
 %% Lateral equivalent inertial loads caused by the soil acceleration
 fmax=zeros(ndof,nmodes);
 for i=1:nmodes
-    M_asterisco=fi(:,i)'*M*fi(:,i);
+    Mn=fi(:,i)'*M*fi(:,i);
+    fmaxn=fi(:,i)'*M;
+    vector1=abs(fi(:,i)'); % influence vector
     
-    fmaxn=(fi(:,i)'*M/M_asterisco)*Sa;
-    vector1=ones(1,ndof);
-    fmaxn=dot(fmaxn,vector1);
+    vector1(1,3:3:ndof)=0; % the roation DOF are not considered influential
+    vector1=vector1/max(vector1);
     
-    fmax(:,i)=fmaxn*(M*fi(:,i));
+    Ln=fmaxn*vector1'; 
+    rn=Ln/Mn; % Modal participation factor
+    fmax(:,i)=rn*Sa;
+    
+    Ma(i)=rn^2*Mn; % Effective modal mass
 end
 
 % Lateral equivalent inertial loads considering the constribution of all 
