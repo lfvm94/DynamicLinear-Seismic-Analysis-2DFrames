@@ -50,6 +50,7 @@ function [FmaxMDOF,Te,lambda,fi,Ma]=ModalsMDOF2DFrames2(M,K,bc,Sa,mode)
 for i=1:nmodes
     [factor,ifactor]=max(abs(fi(:,i))); % Eigenvectors - vibration modals
     factor=factor*sign(fi(ifactor,i));
+    fi(:,i)=fi(:,i)./factor;
 end
 
 % Circular frequencies
@@ -73,7 +74,8 @@ for i=1:nmodes
     
     Ln=fmaxn*vector1'; 
     rn=Ln/Mn; % Modal participation factor
-    fmax(:,i)=rn*Sa;
+    
+    fmax(:,i)=-fmaxn.*vector1*Sa; % fmax(:,i)=rn*Sd;
     
     Ma(i)=rn^2*Mn; % Effective modal mass
 end
